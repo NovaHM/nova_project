@@ -1,2 +1,72 @@
 /* Partytown 0.5.4 - MIT builder.io */
-!function(t,e,n,i,r,o,a,d,s,c,p,l){function u(){l||(l=1,"/"==(a=(o.lib||"/~partytown/")+(o.debug?"debug/":""))[0]&&(s=e.querySelectorAll('script[type="text/partytown"]'),i!=t?i.dispatchEvent(new CustomEvent("pt1",{detail:t})):(d=setTimeout(w,1e4),e.addEventListener("pt0",f),r?h(1):n.serviceWorker?n.serviceWorker.register(a+(o.swPath||"partytown-sw.js"),{scope:a}).then((function(t){t.active?h():t.installing&&t.installing.addEventListener("statechange",(function(t){"activated"==t.target.state&&h()}))}),console.error):w())))}function h(t){c=e.createElement(t?"script":"iframe"),t||(c.setAttribute("style","display:block;width:0;height:0;border:0;visibility:hidden"),c.setAttribute("aria-hidden",!0)),c.src=a+"partytown-"+(t?"atomics.js?v=0.5.4":"sandbox-sw.html?"+Date.now()),e.body.appendChild(c)}function w(t,n){for(f(),t=0;t<s.length;t++)(n=e.createElement("script")).innerHTML=s[t].innerHTML,e.head.appendChild(n);c&&c.parentNode.removeChild(c)}function f(){clearTimeout(d)}o=t.partytown||{},i==t&&(o.forward||[]).map((function(e){p=t,e.split(".").map((function(e,n,i){p=p[i[n]]=n+1<i.length?"push"==i[n+1]?[]:p[i[n]]||{}:function(){(t._ptf=t._ptf||[]).push(i,arguments)}}))})),"complete"==e.readyState?u():(t.addEventListener("DOMContentLoaded",u),t.addEventListener("load",u))}(window,document,navigator,top,window.crossOriginIsolated);
+!function(win, doc, nav, top, useAtomics, config, libPath, timeout, scripts, sandbox, mainForwardFn, isReady) {
+    function ready() {
+        if (!isReady) {
+            isReady = 1;
+            libPath = (config.lib || "/~partytown/") + (false !== config.debug ? "debug/" : "");
+            if ("/" == libPath[0]) {
+                scripts = doc.querySelectorAll('script[type="text/partytown"]');
+                if (top != win) {
+                    top.dispatchEvent(new CustomEvent("pt1", {
+                        detail: win
+                    }));
+                } else {
+                    timeout = setTimeout(fallback, 1e4);
+                    doc.addEventListener("pt0", clearFallback);
+                    useAtomics ? loadSandbox(1) : nav.serviceWorker ? nav.serviceWorker.register(libPath + (config.swPath || "partytown-sw.js"), {
+                        scope: libPath
+                    }).then((function(swRegistration) {
+                        if (swRegistration.active) {
+                            loadSandbox();
+                        } else if (swRegistration.installing) {
+                            swRegistration.installing.addEventListener("statechange", (function(ev) {
+                                "activated" == ev.target.state && loadSandbox();
+                            }));
+                        } else {
+                            console.warn(swRegistration);
+                        }
+                    }), console.error) : fallback();
+                }
+            } else {
+                console.warn('Partytown config.lib url must start with "/"');
+            }
+        }
+    }
+    function loadSandbox(isAtomics) {
+        sandbox = doc.createElement(isAtomics ? "script" : "iframe");
+        if (!isAtomics) {
+            sandbox.setAttribute("style", "display:block;width:0;height:0;border:0;visibility:hidden");
+            sandbox.setAttribute("aria-hidden", !0);
+        }
+        sandbox.src = libPath + "partytown-" + (isAtomics ? "atomics.js?v=0.5.4" : "sandbox-sw.html?" + Date.now());
+        doc.body.appendChild(sandbox);
+    }
+    function fallback(i, script) {
+        console.warn("Partytown script fallback");
+        clearFallback();
+        for (i = 0; i < scripts.length; i++) {
+            script = doc.createElement("script");
+            script.innerHTML = scripts[i].innerHTML;
+            doc.head.appendChild(script);
+        }
+        sandbox && sandbox.parentNode.removeChild(sandbox);
+    }
+    function clearFallback() {
+        clearTimeout(timeout);
+    }
+    config = win.partytown || {};
+    top == win && (config.forward || []).map((function(forwardProps) {
+        mainForwardFn = win;
+        forwardProps.split(".").map((function(_, i, forwardPropsArr) {
+            mainForwardFn = mainForwardFn[forwardPropsArr[i]] = i + 1 < forwardPropsArr.length ? "push" == forwardPropsArr[i + 1] ? [] : mainForwardFn[forwardPropsArr[i]] || {} : function() {
+                (win._ptf = win._ptf || []).push(forwardPropsArr, arguments);
+            };
+        }));
+    }));
+    if ("complete" == doc.readyState) {
+        ready();
+    } else {
+        win.addEventListener("DOMContentLoaded", ready);
+        win.addEventListener("load", ready);
+    }
+}(window, document, navigator, top, window.crossOriginIsolated);

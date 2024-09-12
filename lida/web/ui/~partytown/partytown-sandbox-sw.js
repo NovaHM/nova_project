@@ -387,6 +387,39 @@
             })(worker, winCtx, msg[2], msg[3]));
         }
     };
+    const readMainPlatform = () => {
+        const elm = docImpl.createElement("i");
+        const textNode = docImpl.createTextNode("");
+        const comment = docImpl.createComment("");
+        const frag = docImpl.createDocumentFragment();
+        const shadowRoot = docImpl.createElement("p").attachShadow({
+            mode: "open"
+        });
+        const intersectionObserver = getGlobalConstructor(mainWindow, "IntersectionObserver");
+        const mutationObserver = getGlobalConstructor(mainWindow, "MutationObserver");
+        const resizeObserver = getGlobalConstructor(mainWindow, "ResizeObserver");
+        const perf = mainWindow.performance;
+        const screen = mainWindow.screen;
+        const impls = [ [ mainWindow.history ], [ perf ], [ perf.navigation ], [ perf.timing ], [ screen ], [ screen.orientation ], [ mainWindow.visualViewport ], [ intersectionObserver, 12 ], [ mutationObserver, 12 ], [ resizeObserver, 12 ], [ textNode ], [ comment ], [ frag ], [ shadowRoot ], [ elm ], [ elm.attributes ], [ elm.classList ], [ elm.dataset ], [ elm.style ], [ docImpl ], [ docImpl.doctype ] ];
+        const initialInterfaces = [ readImplementation("Window", mainWindow), readImplementation("Node", textNode) ];
+        const $config$ = JSON.stringify(config, ((k, v) => {
+            if ("function" == typeof v) {
+                v = String(v);
+                v.startsWith(k + "(") && (v = "function " + v);
+            }
+            return v;
+        }));
+        const initWebWorkerData = {
+            $config$: $config$,
+            $interfaces$: readImplementations(impls, initialInterfaces),
+            $libPath$: new URL(libPath, mainWindow.location) + "",
+            $origin$: origin,
+            $localStorage$: readStorage("localStorage"),
+            $sessionStorage$: readStorage("sessionStorage")
+        };
+        addGlobalConstructorUsingPrototype(initWebWorkerData.$interfaces$, mainWindow, "IntersectionObserverEntry");
+        return initWebWorkerData;
+    };
     const readMainInterfaces = () => {
         const elms = Object.getOwnPropertyNames(mainWindow).map((interfaceName => ((doc, interfaceName, r, tag) => {
             r = interfaceName.match(/^(HTML|SVG)(.+)Element$/);
@@ -465,63 +498,17 @@
         void 0 !== mainWindow[cstrName] && $interfaces$.push([ cstrName, "Object", Object.keys(mainWindow[cstrName].prototype).map((propName => [ propName, 6 ])), 12 ]);
     };
     let worker;
-    (async receiveMessage => {
-        const sharedDataBuffer = new SharedArrayBuffer(1073741824);
-        const sharedData = new Int32Array(sharedDataBuffer);
-        return (worker, msg) => {
-            const msgType = msg[0];
-            const accessReq = msg[1];
-            if (0 === msgType) {
-                const initData = (() => {
-                    const elm = docImpl.createElement("i");
-                    const textNode = docImpl.createTextNode("");
-                    const comment = docImpl.createComment("");
-                    const frag = docImpl.createDocumentFragment();
-                    const shadowRoot = docImpl.createElement("p").attachShadow({
-                        mode: "open"
-                    });
-                    const intersectionObserver = getGlobalConstructor(mainWindow, "IntersectionObserver");
-                    const mutationObserver = getGlobalConstructor(mainWindow, "MutationObserver");
-                    const resizeObserver = getGlobalConstructor(mainWindow, "ResizeObserver");
-                    const perf = mainWindow.performance;
-                    const screen = mainWindow.screen;
-                    const impls = [ [ mainWindow.history ], [ perf ], [ perf.navigation ], [ perf.timing ], [ screen ], [ screen.orientation ], [ mainWindow.visualViewport ], [ intersectionObserver, 12 ], [ mutationObserver, 12 ], [ resizeObserver, 12 ], [ textNode ], [ comment ], [ frag ], [ shadowRoot ], [ elm ], [ elm.attributes ], [ elm.classList ], [ elm.dataset ], [ elm.style ], [ docImpl ], [ docImpl.doctype ] ];
-                    const initialInterfaces = [ readImplementation("Window", mainWindow), readImplementation("Node", textNode) ];
-                    const $config$ = JSON.stringify(config, ((k, v) => {
-                        if ("function" == typeof v) {
-                            v = String(v);
-                            v.startsWith(k + "(") && (v = "function " + v);
-                        }
-                        return v;
-                    }));
-                    const initWebWorkerData = {
-                        $config$: $config$,
-                        $interfaces$: readImplementations(impls, initialInterfaces),
-                        $libPath$: new URL(libPath, mainWindow.location) + "",
-                        $origin$: origin,
-                        $localStorage$: readStorage("localStorage"),
-                        $sessionStorage$: readStorage("sessionStorage")
-                    };
-                    addGlobalConstructorUsingPrototype(initWebWorkerData.$interfaces$, mainWindow, "IntersectionObserverEntry");
-                    return initWebWorkerData;
-                })();
-                initData.$sharedDataBuffer$ = sharedDataBuffer;
-                worker.postMessage([ 1, initData ]);
-            } else {
-                2 === msg[0] ? worker.postMessage([ 3, readMainInterfaces() ]) : 11 === msgType ? receiveMessage(accessReq, (accessRsp => {
-                    const stringifiedData = JSON.stringify(accessRsp);
-                    const stringifiedDataLength = stringifiedData.length;
-                    for (let i = 0; i < stringifiedDataLength; i++) {
-                        sharedData[i + 1] = stringifiedData.charCodeAt(i);
-                    }
-                    sharedData[0] = stringifiedDataLength;
-                    Atomics.notify(sharedData, 0);
-                })) : onMessageFromWebWorker(worker, msg);
-            }
-        };
+    (receiveMessage => {
+        const swContainer = window.navigator.serviceWorker;
+        return swContainer.getRegistration().then((swRegistration => {
+            swContainer.addEventListener("message", (ev => receiveMessage(ev.data, (accessRsp => swRegistration.active && swRegistration.active.postMessage(accessRsp)))));
+            return (worker, msg) => {
+                0 === msg[0] ? worker.postMessage([ 1, readMainPlatform() ]) : 2 === msg[0] ? worker.postMessage([ 3, readMainInterfaces() ]) : onMessageFromWebWorker(worker, msg);
+            };
+        }));
     })(((accessReq, responseCallback) => mainAccessHandler(worker, accessReq).then(responseCallback))).then((onMessageHandler => {
         if (onMessageHandler) {
-            worker = new Worker(libPath + "partytown-ww-atomics.js?v=0.5.4", {
+            worker = new Worker(libPath + "partytown-ww-sw.js?v=0.5.4", {
                 name: "Partytown 🎉"
             });
             worker.onmessage = ev => {
